@@ -88,23 +88,31 @@ def callback(detections):
     bridge = CvBridge()
     #print("callback")
     global img_pub
-    img = rospy.wait_for_message("/rgb/image_raw", Image)
+    try:
+        img = rospy.wait_for_message("/rgb/image_raw", Image)
+    except Exception as e:
+        return
     #print(img)
     # convert image to cv2 image
     img = bridge.imgmsg_to_cv2(img_msg=img, desired_encoding="passthrough")
 
+    # print all detections
     # for each detection in detections, draw bounding box on image
     for detection in detections.detections:
+        #print(detection)
         # get bounding box
         x_min = int(detection.points[0].point[0])
         y_min = int(detection.points[0].point[1])
         x_max = int(detection.points[1].point[0])
         y_max = int(detection.points[1].point[1])
         #print(x_min, y_min, x_max, y_max)
+        # if detection is not a person, skip
+        if detection.label != "person":
+            continue
         # draw bounding box on image
         cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
         # draw very large ID on image
-        cv2.putText(img, str(detection.id), (x_min, y_min), cv2.FONT_HERSHEY_SIMPLEX, 10, (0, 0, 255), 2)
+        cv2.putText(img, str(detection.label) + " " + str(detection.id), (x_min, y_min), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 0, 255), 3)
     
     # convert image to numpy array
     img = np.asarray(img)

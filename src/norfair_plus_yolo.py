@@ -87,13 +87,10 @@ path = "/home/aabl-guest/catkin_ws/src/yolov7-ros/class_labels/coco.txt"
 
 # define a function to read the object id text file
 def read_object_id(id):
-    id = str(id)
-    with open(path, 'r') as f:
-        for index, line in enumerate(f):
-            if index == int(id):
-                return line.strip()
-            
-            
+    file = open(path, "r")
+    lines = file.readlines()
+    #print(lines[0])
+    return lines[id]
 def convert_detection2dArray_to_detections_msg(detection2darray):
     # create a norfair detections message
     detections_msg = DetectionsMsg()
