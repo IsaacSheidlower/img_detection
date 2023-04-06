@@ -10,7 +10,7 @@ from norfair_ros.msg import BoundingBoxes
 from sensor_msgs.msg import Image
 import cv2
 import numpy as np
-
+from cv_bridge import CvBridge 
 global img_pub
 
 """norfair detections message:
@@ -85,11 +85,13 @@ float64 theta
 
 # define callback function
 def callback(detections):
+    bridge = CvBridge()
+    #print("callback")
     global img_pub
     img = rospy.wait_for_message("/rgb/image_raw", Image)
+    #print(img)
     # convert image to cv2 image
-    img = cv2.imdecode(np.frombuffer(img.data, np.uint8), -1)
-
+    img = bridge.imgmsg_to_cv2(img_msg=img, desired_encoding="passthrough")
 
     # for each detection in detections, draw bounding box on image
     for detection in detections.detections:
@@ -98,21 +100,18 @@ def callback(detections):
         y_min = int(detection.points[0].point[1])
         x_max = int(detection.points[1].point[0])
         y_max = int(detection.points[1].point[1])
-        print(x_min, y_min, x_max, y_max)
+        #print(x_min, y_min, x_max, y_max)
         # draw bounding box on image
         cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+        # draw very large ID on image
+        cv2.putText(img, str(detection.id), (x_min, y_min), cv2.FONT_HERSHEY_SIMPLEX, 10, (0, 0, 255), 2)
     
-    #TODO: FIX THIS
     # convert image to numpy array
-    img = np.array(img)
-    # convert image to ros image
-    img = cv2.imencode('.jpg', img)[1].tostring()
-    img = Image()
-    img.data = img
-
-
-    # publish image
-    img_pub.publish(img)
+    img = np.asarray(img)
+    #print(img)
+    # convert image to msg
+    img_data = CvBridge().cv2_to_imgmsg(img)
+    img_pub.publish(img_data)
 
 
 # define main function
@@ -130,6 +129,7 @@ def main():
 
     # spin
     rospy.spin()
+    rospy.sleep(.01)
 
 # run main function
 if __name__ == '__main__':
