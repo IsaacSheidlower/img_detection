@@ -8,10 +8,12 @@ from norfair_ros.msg import Detections as DetectionsMsg
 from norfair_ros.msg import Point
 from norfair_ros.msg import BoundingBoxes
 from sensor_msgs.msg import Image
+from img_detection.msg import ObjectPositionNorfair, ObjectPositionsNorfair
 import cv2
 import numpy as np
 from cv_bridge import CvBridge 
-global img_pub
+
+global object_pub
 
 """norfair detections message:
 
@@ -85,60 +87,58 @@ float64 theta
 
 # define callback function
 def callback(detections):
-    bridge = CvBridge()
-    #print("callback")
-    global img_pub
-    try:
-        img = rospy.wait_for_message("/rgb/image_raw", Image)
-    except Exception as e:
-        return
-    #print(img)
-    # convert image to cv2 image
-    img = bridge.imgmsg_to_cv2(img_msg=img, desired_encoding="passthrough")
 
-    # print all detections
-    # for each detection in detections, draw bounding box on image
+    object_array = ObjectPositionsNorfair()
+    object_array.header = detections.header
     for detection in detections.detections:
+        if not "person" in detection.label:
+            continue
         #print(detection)
         # get bounding box
         x_min = int(detection.points[0].point[0])
         y_min = int(detection.points[0].point[1])
         x_max = int(detection.points[1].point[0])
         y_max = int(detection.points[1].point[1])
-        #print(x_min, y_min, x_max, y_max)
-        # if detection is not a person, skip
-        
-        # if not "person" in detection.label:
-        #     continue
-        # draw bounding box on image
-        cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+
         # calculate center of bounding box and draw on image
         center_x = int((x_min + x_max) / 2)
         center_y = int((y_min + y_max) / 2)
-        cv2.circle(img, (center_x, center_y), 5, (0, 0, 255), -1)
-        # draw very large ID on image
-        cv2.putText(img, str(detection.label) + " " + str(detection.id), (x_min, y_min), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 0, 255), 3)
-    
-    # convert image to numpy array
-    img = np.asarray(img)
-    #print(img)
-    # convert image to msg
-    img_data = CvBridge().cv2_to_imgmsg(img)
-    img_pub.publish(img_data)
+
+        # flip x and y to match image coordinates
+        center = [center_y, center_x]
+
+        # get depth image
+        depth_image = rospy.wait_for_message("/rgb_to_depth/image_raw", Image)
+        bridge = CvBridge()
+        depth_image = bridge.imgmsg_to_cv2(depth_image, desired_encoding="passthrough")
+        depth_image = np.array(depth_image, dtype=np.float32)
+        # depth shape (1024, 1024, 4)
+
+        color_image = rospy.wait_for_message("/rgb/image_raw", Image)
+        color_image = bridge.imgmsg_to_cv2(color_image, desired_encoding="passthrough")
+        color_image = np.array(color_image, dtype=np.uint8)
+        # color shape (1536, 2048, 4)
+
+        # translate center to depth image coordinates
+        center_depth = [int(center[0] * 1024 / 1536), int(center[1] * 1024 / 2048)]
+
+        # get depth value at center of bounding box
+        depth = depth_image[center_depth[0], center_depth[1], 0]
+        print(depth)
 
 
 # define main function
 def main():
     # initialize node
     try: 
-        rospy.init_node('norfair_imgs', anonymous=True)
+        rospy.init_node('object_positions', anonymous=True)
     except rospy.ROSInitException:
         pass
 
     # subscribe to norfair/output topic
     rospy.Subscriber("/norfair/output", DetectionsMsg, callback)
     global img_pub
-    img_pub = rospy.Publisher("/norfair/imgs", Image, queue_size=10)   
+    img_pub = rospy.Publisher("/norfair/object_positions", ObjectPositionsNorfair, queue_size=10)   
 
     # spin
     rospy.spin()
