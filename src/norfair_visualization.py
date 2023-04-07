@@ -107,8 +107,9 @@ def callback(detections):
         y_max = int(detection.points[1].point[1])
         #print(x_min, y_min, x_max, y_max)
         # if detection is not a person, skip
-        if detection.label != "person":
-            continue
+        
+        # if not "person" in detection.label:
+        #     continue
         # draw bounding box on image
         cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
         # draw very large ID on image
@@ -137,7 +138,7 @@ def main():
 
     # spin
     rospy.spin()
-    rospy.sleep(.01)
+    #rospy.sleep(.01)
 
 # run main function
 if __name__ == '__main__':
