@@ -122,8 +122,15 @@ def callback(detections):
         # translate center to depth image coordinates
         center_depth = [int(center[0] * 1024 / 1536), int(center[1] * 1024 / 2048)]
 
+        combined_image = cv2.addWeighted(color_image[:,:,:3], 0.7, depth_image, 0.3, 0)
+        cv2.circle(combined_image, (center_depth[1], center_depth[0]), 5, (0, 0, 255), -1)
+        cv2.rectangle(combined_image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+        cv2.imshow("combined", combined_image)
+        cv2.waitKey(1)
         # get depth value at center of bounding box
         depth = depth_image[center_depth[0], center_depth[1], 0]
+        # get average depth around center of bounding box
+        depth = np.mean(depth_image[center_depth[0]-5:center_depth[0]+5, center_depth[1]-5:center_depth[1]+5, 0])
         print(depth)
 
 
